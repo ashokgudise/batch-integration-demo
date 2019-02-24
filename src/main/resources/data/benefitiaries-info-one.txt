@@ -1,0 +1,8 @@
+BeneID  | Benefitiary ID    | Phone Number
+891     | Benjamin Franklin | 242-252-2442
+992     | Alexander Fleming | 323-353-3883
+543     | Thomas Alwa Edison| 456-487-4466
+664     | Thomas Brayden    | 665-390-5775
+365     | Peter Venice      | 553-257-6677
+7646    | Nancy Thomas      | 148-443-6882
+237     | Steven Johnson    | 335-243-7889

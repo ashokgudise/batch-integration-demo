@@ -1,0 +1,49 @@
+buildscript {
+    repositories{
+        mavenCentral()
+    }
+    dependencies{
+        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.0.5.RELEASE")
+    }
+}
+
+group 'spring-batch-integration'
+version '1.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'org.springframework.boot'
+apply plugin: 'io.spring.dependency-management'
+
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+
+dependencies {
+
+    //Spring MVC
+    compile("org.springframework.boot:spring-boot-starter-web")
+
+    //Spring Batch
+    compile("org.springframework.boot:spring-boot-starter-batch")
+
+    //Spring Integration
+    compile("org.springframework.boot:spring-boot-starter-integration")
+    compile("org.springframework.integration:spring-integration-file")
+
+    //Spring-batch Spring-integration dependencies
+    compile("org.springframework.batch:spring-batch-integration")
+
+    //Database & JPA
+    compile("org.springframework.boot:spring-boot-starter-data-jpa")
+    compile(group:"org.hsqldb", name:"hsqldb")
+
+    //Test Dependencies
+    testCompile('org.springframework.boot:spring-boot-starter-test')
+    testCompile('com.jayway.jsonpath:json-path')
+}
