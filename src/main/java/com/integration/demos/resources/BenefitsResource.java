@@ -27,5 +27,12 @@ public class BenefitsResource {
         return benefitiaryService.saveBenefitiary(benefitiary);
     }
 
+
+    @RequestMapping(value = "/enrollment", method = RequestMethod.POST)
+    public Benefitiary saveEnrollment(@RequestBody Benefitiary benefitiary){
+        return benefitiaryService.saveBenefitiary(benefitiary);
+    }
+
+
 }
 

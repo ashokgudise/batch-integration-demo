@@ -10,7 +10,9 @@ public class BenefitiaryFieldSetMapper implements FieldSetMapper<Benefitiary> {
 
     public Benefitiary mapFieldSet(FieldSet fieldSet) throws BindException {
 
-        final Benefitiary benefitiary = new Benefitiary(fieldSet.readString("beneId").trim(),fieldSet.readString("phoneNumber").trim(),fieldSet.readString("name").trim());
+        final Benefitiary benefitiary = new Benefitiary(fieldSet.readString("beneId").trim(),
+                fieldSet.readString("phoneNumber").trim(),
+                fieldSet.readString("name").trim());
 
         return benefitiary;
     }

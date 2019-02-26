@@ -2,6 +2,7 @@ package com.integration.demos.config;
 
 
 import com.integration.demos.batch.mappers.BenefitiaryFieldSetMapper;
+import com.integration.demos.batch.readers.BenifitiaryCustomItemReader;
 import com.integration.demos.batch.repository.BenefitiaryRepository;
 import com.integration.demos.model.Benefitiary;
 import org.slf4j.Logger;
@@ -14,9 +15,7 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepScope;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
-import org.springframework.batch.item.ItemProcessor;
-import org.springframework.batch.item.ItemReader;
-import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.*;
 import org.springframework.batch.item.data.RepositoryItemWriter;
 import org.springframework.batch.item.file.FlatFileItemReader;
 import org.springframework.batch.item.file.mapping.DefaultLineMapper;
@@ -27,14 +26,16 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
+import java.util.List;
+
 @Configuration
 @EnableBatchProcessing
 public class BatchConfig {
 
     private static final Logger log = LoggerFactory.getLogger(BatchConfig.class);
 
-    public static final String STEP_NAME = "processingStep";
-    public static final String JOB_NAME = "processingJob";
+    public static final String DEFAULT_STEP_NAME = "processingStep";
+    public static final String DEFAULT_JOB_NAME = "processingJob";
 
     @Autowired
     private JobBuilderFactory jobBuilderFactory;
@@ -73,7 +74,7 @@ public class BatchConfig {
 
             @Override
             public Benefitiary process(Benefitiary item) throws Exception {
-                log.info("Processing: " + item);
+                log.info("Processing: " + item.getName());
                 return item;
             }
 
@@ -88,10 +89,11 @@ public class BatchConfig {
         return writer;
     }
 
+
     @Bean
     public Step processingStepBean(ItemReader<Benefitiary> reader, ItemProcessor<Benefitiary, Benefitiary> processor, ItemWriter<Benefitiary> writer) {
-        log.debug("Configuring Step: " + STEP_NAME);
-        return stepBuilderFactory.get(STEP_NAME)
+        log.debug("Configuring Step: " + DEFAULT_STEP_NAME);
+        return stepBuilderFactory.get(DEFAULT_STEP_NAME)
                 .<Benefitiary, Benefitiary>chunk(5)
                 .reader(reader)
                 .processor(processor)
@@ -101,13 +103,16 @@ public class BatchConfig {
 
     @Bean
     public Job processingJobBean(Step processingStep, JobExecutionListener listener) {
-        log.debug("Configuring Job: " + JOB_NAME);
-        return jobBuilderFactory.get(JOB_NAME)
+        log.debug("Configuring Job: " + DEFAULT_JOB_NAME);
+        return jobBuilderFactory.get(DEFAULT_JOB_NAME)
                 .listener(listener)
                 .incrementer(new RunIdIncrementer())
                 .flow(processingStep)
                 .end()
                 .build();
     }
+
+
+
 
 }

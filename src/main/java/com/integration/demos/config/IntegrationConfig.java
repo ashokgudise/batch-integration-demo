@@ -41,6 +41,7 @@ import org.springframework.integration.gateway.GatewayProxyFactoryBean;
 import org.springframework.integration.scheduling.PollerMetadata;
 import org.springframework.integration.transformer.GenericTransformer;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.util.CollectionUtils;
 
 
 @Configuration
@@ -75,9 +76,7 @@ public class IntegrationConfig {
     }
 
     @Bean
-    public MessageChannel fileInputChannel() {
-        return MessageChannels.direct().get();
-    }
+    public MessageChannel fileInputChannel() { return MessageChannels.direct().get(); }
 
     @Bean
     public MessageChannel jobRequestChannel() {
@@ -109,6 +108,22 @@ public class IntegrationConfig {
         return MessageChannels.queue().get();
     }
 
+
+
+    /**
+     * <int:chain input-channel='fileInputChannel' output-channel='jobStatusChannel'>
+     *      <int:gateway ref='fileReadingMessageSource' />
+     *      <int:transformer ref='transformFileToRequest'/>
+     *      <int:gateway ref='jobRequestHandler'/>
+     *      <int:transformer ref='transformJobExecutionToStatus'/>
+     * </int:chain>
+     *
+     * <int:service-activator ref='fileReadingMessageSource'/>
+     *
+     * <int:service-activator ref='jobRequestHandler' reply-channel='jobRequestChannel' />
+     *
+     * @return
+     */
     @Bean
     public IntegrationFlow processFilesFlow() {
         return IntegrationFlows.from(fileReadingMessageSource(), c -> c.poller(poller()))
@@ -121,6 +136,18 @@ public class IntegrationConfig {
                 .get();
     }
 
+    /**
+     * <int:chain input-channel='jobExecutionChannel'>
+     *     <int:router>
+     *         <int:mapping value='true'  output-channel='jobRestartChannel'/>
+     *         <int:mapping value='false' output-channel='jobExecutionNotifiedChannel/>
+     *     </int:router>
+     *
+     * </int:chain>
+     *
+     *
+     * @return Integration Flow
+     */
     @Bean
     public IntegrationFlow processExecutionsFlow() {
         return IntegrationFlows.from(jobExecutionChannel())
@@ -130,6 +157,14 @@ public class IntegrationConfig {
                 .get();
     }
 
+    /**
+     *  <int:chain id='processExecutionRestartsFlow' request-channel='jobRestartChannel'>
+     *
+     *      <int:gateway ref='jobRestarter'/>
+     *
+     *  </int:chain>
+     * @return Integration Flow
+     */
     @Bean
     public IntegrationFlow processExecutionRestartsFlow() {
         return IntegrationFlows.from(jobRestartChannel())
@@ -138,6 +173,18 @@ public class IntegrationConfig {
                 .get();
     }
 
+    /**
+     *
+     * <int:chain input-channel='jobExecutionNotifiedChannel'>
+     *
+     *  <int:router>
+     *      <int:mapping value='true' reply-channel='jobCompletedChannel'/>
+     *      <int:mapping value='false' reply-channel='jobStatusChannel/>
+     *  </int:router>
+     *
+     * </int:chain>
+     * @return Integration Flow
+     */
     @Bean
     public IntegrationFlow processNotifiedExecutionFlow() {
         return IntegrationFlows.from(jobExecutionNotifiedChannel())
@@ -149,6 +196,15 @@ public class IntegrationConfig {
                 .get();
     }
 
+    /**
+     * <int:chain input-channel='jobCompletedChannel' output-channel='jobStatusChannel'>
+     *  <int:transformer ref='jobExecutionToFileTransformer'></int:transformer>
+     *     <int:gateway ref='processedFileWritingHandler'></int:gateway>
+     * </int:chain>
+     *
+     *
+     * @return Interation Flow
+     */
     @Bean
     public IntegrationFlow processExecutionCompletedFlow() {
         return IntegrationFlows.from(jobCompletedChannel())
@@ -158,6 +214,10 @@ public class IntegrationConfig {
                 .get();
     }
 
+    /**
+     *  Adding Gateway Capabilities to JobExecutionListener with channel 'jobExecutionChannel'
+     * @return
+     */
     @Bean
     public GatewayProxyFactoryBean jobExecutionsListener(){
         GatewayProxyFactoryBean factoryBean = new GatewayProxyFactoryBean(JobExecutionListener.class);
@@ -165,6 +225,10 @@ public class IntegrationConfig {
         return factoryBean;
     }
 
+    /**
+     * FileFilter - Setting file-patterns, directory, directory filter etc.
+     * @return
+     */
     @Bean
     public MessageSource<File> fileReadingMessageSource() {
         CompositeFileListFilter<File> filters = new CompositeFileListFilter<>();
@@ -179,11 +243,20 @@ public class IntegrationConfig {
         return source;
     }
 
+    /**
+     * JobLauncher as ServiceActivator
+     * @return
+     */
     @Bean
     public JobLaunchingMessageHandler jobRequestHandler() {
         return new JobLaunchingMessageHandler(jobLauncher);
     }
 
+    /**
+     * Processing Directory Properties - Directory Filters, File Over-writing type Replace,Append etc.
+     *
+     * @return
+     */
     @Bean
     public FileWritingMessageHandler processedFileWritingHandler() {
         FileWritingMessageHandler handler = new FileWritingMessageHandler(new File(PROCESSED_DIRECTORY));
@@ -193,6 +266,11 @@ public class IntegrationConfig {
         return handler;
     }
 
+    /**
+     *
+     * @param execution
+     * @return
+     */
     public JobExecution jobRestarter(JobExecution execution) {
         log.info("Restarting job...");
         try {
@@ -203,6 +281,10 @@ public class IntegrationConfig {
         }
     }
 
+    /**
+     * Creating file by reading file path from Job Parameter
+     * @return
+     */
     @Bean
     public GenericTransformer<JobExecution, File> jobExecutionToFileTransformer() {
         return new GenericTransformer<JobExecution, File>(){
@@ -214,10 +296,15 @@ public class IntegrationConfig {
         };
     }
 
+    /**
+     * Creating a Job with FileName, DateTime as Job Parameters - as JobRequest
+     * @param file
+     * @return
+     */
     public JobLaunchRequest transformFileToRequest(File file) {
         log.info("Creating request");
 
-        Job job = getJobByFileName(file);
+        Job job = getJobByFileName();
         log.info("Job = " + job.getName());
 
         JobParametersBuilder paramsBuilder = new JobParametersBuilder();
@@ -230,6 +317,11 @@ public class IntegrationConfig {
         return request;
     }
 
+    /**
+     * Read Job Status from JobExecution and preparing a customized message
+     * @param execution
+     * @return
+     */
     public String transformJobExecutionToStatus(JobExecution execution) {
         DateFormat formatter = new SimpleDateFormat("yyyy/MM/dd hh:mm:ss.SS");
         StringBuilder builder = new StringBuilder();
@@ -238,23 +330,30 @@ public class IntegrationConfig {
 
         BatchStatus evaluatedStatus = endingBatchStatus(execution);
         if (evaluatedStatus == BatchStatus.COMPLETED || evaluatedStatus.compareTo(BatchStatus.STARTED) > 0) {
-            builder.append(" has completed with a status of " + execution.getStatus().name() + " at "
-                    + formatter.format(new Date()));
+            builder.append(" has completed with a status of ")
+                    .append(execution.getStatus().name())
+                    .append(" at ")
+                    .append(formatter.format(new Date()));
 
-            builder.append(" with " + repository.count() + " processed records.");
+            builder.append(" with " )
+                    .append(repository.count())
+                    .append(" processed records.");
         } else {
-            builder.append(" has started at " + formatter.format(new Date()));
+            builder.append(" has started at ")
+                    .append(formatter.format(new Date()));
         }
 
         return builder.toString();
     }
 
+
     private BatchStatus endingBatchStatus(JobExecution execution) {
         BatchStatus status = execution.getStatus();
         Collection<StepExecution> stepExecutions = execution.getStepExecutions();
 
-        if (stepExecutions.size() > 0) {
+        if (!CollectionUtils.isEmpty(stepExecutions)) {
             for (StepExecution stepExecution : stepExecutions) {
+
                 if (stepExecution.getStatus().equals(BatchStatus.FAILED)) {
                     status = BatchStatus.FAILED;
                     break;
@@ -267,9 +366,13 @@ public class IntegrationConfig {
         return status;
     }
 
-    private Job getJobByFileName(File file) {
+    /**
+     * Creating a new Job
+     * @return
+     */
+    private Job getJobByFileName() {
         try {
-            return jobRegistry.getJob(BatchConfig.JOB_NAME);
+            return jobRegistry.getJob(BatchConfig.DEFAULT_JOB_NAME);
         } catch (NoSuchJobException e) {
             log.error(e.getLocalizedMessage());
             e.printStackTrace();

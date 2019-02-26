@@ -10,5 +10,4 @@ public interface BenefitiaryRepository extends PagingAndSortingRepository<Benefi
     Benefitiary findByName(String name);
     Benefitiary findByPhoneNumber(String phoneNumber);
     Benefitiary findByBeneId(String beneId);
-
 }
